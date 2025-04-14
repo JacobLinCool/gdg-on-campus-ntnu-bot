@@ -1,0 +1,32 @@
+{
+  "name": "gdg-on-campus-ntnu-bot",
+  "version": "0.1.0",
+  "description": "A Discord bot for GDG on Campus: NTNU (National Taiwan Normal University) to manage classroom activities",
+  "main": "dist/index.js",
+  "type": "module",
+  "scripts": {
+    "start": "node --enable-source-maps dist/index.js",
+    "dev": "DEBUG=gdg:* tsx watch src/index.ts",
+    "build": "tsup",
+    "format": "prettier --ignore-path .gitignore --write ."
+  },
+  "keywords": [],
+  "author": "JacobLinCool <jacoblincool@gmail.com> (https://github.com/JacobLinCool)",
+  "license": "MIT",
+  "packageManager": "pnpm@10.8.0",
+  "dependencies": {
+    "@google/genai": "^0.8.0",
+    "debug": "^4.4.0",
+    "discord.js": "^14.18.0",
+    "dotenv": "^16.5.0",
+    "eventemitter3": "^5.0.1"
+  },
+  "devDependencies": {
+    "@types/debug": "^4.1.12",
+    "prettier": "^3.5.3",
+    "prettier-plugin-organize-imports": "^4.1.0",
+    "tsup": "^8.4.0",
+    "tsx": "^4.19.3",
+    "typescript": "^5.8.3"
+  }
+}

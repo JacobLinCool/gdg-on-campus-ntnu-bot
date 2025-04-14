@@ -1,0 +1,30 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: gdg-on-campus-ntnu-bot
+  labels:
+    app: gdg-on-campus-ntnu-bot
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: gdg-on-campus-ntnu-bot
+  template:
+    metadata:
+      labels:
+        app: gdg-on-campus-ntnu-bot
+    spec:
+      containers:
+        - name: gdg-on-campus-ntnu-bot
+          image: jacoblincool/gdg-on-campus-ntnu-bot:latest # Replace with your actual image name/registry
+          imagePullPolicy: Always
+          resources:
+            limits:
+              cpu: "500m"
+              memory: "512Mi"
+            requests:
+              cpu: "200m"
+              memory: "256Mi"
+          envFrom:
+            - secretRef:
+                name: gdg-on-campus-ntnu-bot-secrets
