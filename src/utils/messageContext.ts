@@ -10,13 +10,13 @@ import logger from "./logger.js";
  *
  * @param message - The current Discord message
  * @param client - The Discord client instance
- * @param maxMessages - Maximum number of previous messages to fetch (default: 5)
+ * @param maxMessages - Maximum number of previous messages to fetch (default: 10)
  * @returns A formatted string containing the conversation history
  */
 export async function fetchConversationContext(
   message: Message,
   client: Client,
-  maxMessages: number = 5,
+  maxMessages: number = 10,
 ): Promise<Content[]> {
   try {
     // Only fetch messages if it's a reply or in a thread
@@ -37,6 +37,14 @@ export async function fetchConversationContext(
         msg.author.id === message.author.id ||
         msg.author.id === client.user!.id,
     );
+
+    // Gemini requires the first message to be from the user
+    while (
+      relevantMessages.size > 0 &&
+      relevantMessages.first()!.author.id === client.user!.id
+    ) {
+      relevantMessages.delete(relevantMessages.first()!.id);
+    }
 
     if (relevantMessages.size === 0) {
       return [];
