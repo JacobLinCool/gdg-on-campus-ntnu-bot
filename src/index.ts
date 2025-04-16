@@ -1,6 +1,16 @@
-import { Client, Events, GatewayIntentBits, Message } from "discord.js";
+import { Type } from "@google/genai";
+import {
+  Client,
+  EmbedBuilder,
+  Events,
+  GatewayIntentBits,
+  GuildMember,
+  Message,
+} from "discord.js";
 import dotenv from "dotenv";
-import { processQuestion } from "./ai/gemini.js";
+import { agent } from "./ai/agent.js";
+import { bevyFunctions } from "./ai/functions/bevy.js";
+import { selfieFunctions } from "./ai/functions/selfie.js";
 import { registerCommands } from "./commands/index.js";
 import { handleInteraction } from "./interactions.js";
 import { generateInviteLink } from "./utils/inviteLink.js";
@@ -41,7 +51,7 @@ async function main() {
     const inviteLink = generateInviteLink();
     console.log("\n=== Discord Bot Invite Link ===");
     console.log(inviteLink);
-    console.log("==============================\n");
+    console.log("===============================\n");
   } catch (error) {
     logger.system(`Failed to generate invite link: %O`, error);
     console.error("Warning: Failed to generate invite link:", error);
@@ -100,6 +110,16 @@ async function main() {
     }
   });
 
+  // Handle new members joining the server with personalized welcome messages
+  client.on(Events.GuildMemberAdd, async (member) => {
+    try {
+      await handleNewMember(member, client);
+    } catch (error) {
+      logger.system(`Error handling new member: %O`, error);
+      console.error("Error handling new member:", error);
+    }
+  });
+
   // Log in to Discord with the client token
   logger.system("Attempting to log in to Discord...");
   try {
@@ -135,8 +155,21 @@ async function handleBotMention(message: Message, client: Client) {
     (await message.channel.messages.fetch(message.reference.messageId)).author
       .id === client.user!.id;
 
-  // Process message only if it's a direct mention or a reply to the bot
-  if (!isDirectMention && !isReplyToBot) return;
+  // Check if the message is in a thread started by the bot
+  let isInBotThread = false;
+  if (message.channel.isThread()) {
+    try {
+      const starterMessage = await message.channel.fetchStarterMessage();
+      if (starterMessage && starterMessage.author.id === client.user!.id) {
+        isInBotThread = true;
+      }
+    } catch (e) {
+      // ignore errors (e.g., missing starter message)
+    }
+  }
+
+  // Process message only if it's a direct mention, a reply to the bot, or in a thread started by the bot
+  if (!isDirectMention && !isReplyToBot && !isInBotThread) return;
 
   // Extract the question (remove mention)
   const content = message.content.replace(/@<!?\d+>/g, "").trim();
@@ -151,10 +184,11 @@ async function handleBotMention(message: Message, client: Client) {
 
   try {
     // Fetch conversation context from previous messages
-    const conversationContext = await fetchConversationContext(message, client);
-
-    // Process the question with Gemini AI, including conversation context if available
-    const response = await processQuestion(content, conversationContext);
+    const context = await fetchConversationContext(message, client);
+    const response = await agent.please(`answer my question: ${content}`, {
+      context,
+      functions: [...bevyFunctions, ...selfieFunctions],
+    });
 
     // Send the response
     await message.reply(response);
@@ -163,6 +197,113 @@ async function handleBotMention(message: Message, client: Client) {
     logger.system(`Error processing question: %O`, error);
     await message.reply(
       "I'm sorry, I couldn't process your question at this time. Please try again later.",
+    );
+  }
+}
+
+/**
+ * Handles new members joining the server with a personalized welcome message
+ * Uses Gemini LLM to generate a personalized welcome message
+ *
+ * @param member - The Discord guild member who joined
+ * @param client - The Discord client
+ */
+async function handleNewMember(member: GuildMember, client: Client) {
+  logger.system(`New member joined: ${member.user.tag}`);
+
+  try {
+    // Find the system channel or first suitable channel to send welcome message
+    const welcomeChannel =
+      member.guild.systemChannel ||
+      member.guild.channels.cache.find(
+        (channel) => channel.isTextBased() && !channel.isThread(),
+      );
+
+    if (!welcomeChannel || !welcomeChannel.isTextBased()) {
+      logger.system(`No suitable channel found to welcome ${member.user.tag}`);
+      return;
+    }
+
+    // Show typing indicator
+    await welcomeChannel.sendTyping();
+
+    // Get AI-generated welcome message using our specialized welcome generator
+    // const welcomeMessage = await generateWelcomeMessage(member.user.username);
+    const welcomeString = await agent.please(
+      `generate a personalized welcome message for a new member named ${member.user.displayName} who is joining the GDG on Campus: NTNU Discord server. The message should be friendly, welcoming, and informative about the community.`,
+      {
+        functions: bevyFunctions,
+        schema: {
+          type: Type.OBJECT,
+          properties: {
+            message: {
+              type: Type.STRING,
+              description: "The generated welcome message",
+            },
+            upcomingEvents: {
+              type: Type.ARRAY,
+              items: {
+                type: Type.OBJECT,
+                properties: {
+                  title: {
+                    type: Type.STRING,
+                    description: "Title of the event",
+                  },
+                  date: {
+                    type: Type.STRING,
+                    description: "Date of the event",
+                  },
+                  location: {
+                    type: Type.STRING,
+                    description: "Location of the event",
+                  },
+                  link: {
+                    type: Type.STRING,
+                    description: "Link to the event details",
+                  },
+                },
+                required: ["title", "date", "location", "link"],
+              },
+            },
+          },
+          required: ["message"],
+        },
+      },
+    );
+
+    const welcome = JSON.parse(welcomeString);
+
+    // Create embed for welcome message
+    const welcomeEmbed = new EmbedBuilder()
+      .setColor("#0099ff")
+      .setTitle("Welcome to GDG on Campus: NTNU!")
+      .setDescription(welcome.message)
+      .addFields({
+        name: "Upcoming Events",
+        value: welcome.upcomingEvents
+          .map(
+            (event: any) =>
+              `**${event.title}**\nDate: ${event.date}\nLocation: ${event.location}\n[More Info](${event.link})`,
+          )
+          .join("\n\n"),
+      })
+      .setTimestamp()
+      .setFooter({
+        text: "We are glad to have you here!",
+        iconURL: member.user.displayAvatarURL(),
+      });
+
+    // Send the welcome message
+    await welcomeChannel.send({
+      content: `Hey ${member}!`,
+      embeds: [welcomeEmbed],
+    });
+
+    logger.system(`Sent AI-powered welcome message to ${member.user.tag}`);
+  } catch (error) {
+    logger.system(
+      `Error sending welcome message to ${member.user.tag}: %O`,
+      error,
     );
   }
 }

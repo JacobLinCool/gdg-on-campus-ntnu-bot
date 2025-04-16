@@ -38,14 +38,6 @@ export async function fetchConversationContext(
         msg.author.id === client.user!.id,
     );
 
-    // Gemini requires the first message to be from the user
-    while (
-      relevantMessages.size > 0 &&
-      relevantMessages.first()!.author.id === client.user!.id
-    ) {
-      relevantMessages.delete(relevantMessages.first()!.id);
-    }
-
     if (relevantMessages.size === 0) {
       return [];
     }
@@ -55,6 +47,14 @@ export async function fetchConversationContext(
     const orderedMessages = Array.from(relevantMessages.values()).sort(
       (a, b) => a.createdTimestamp - b.createdTimestamp,
     );
+
+    // Gemini requires the first message to be from the user
+    while (
+      orderedMessages.length > 0 &&
+      orderedMessages[0].author.id === client.user!.id
+    ) {
+      orderedMessages.shift();
+    }
 
     const formattedHistory: Content[] = orderedMessages.map((msg) => {
       const role = msg.author.id === client.user!.id ? "model" : "user";
