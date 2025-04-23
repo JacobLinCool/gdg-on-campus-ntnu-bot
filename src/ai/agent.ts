@@ -91,7 +91,7 @@ export class Agent {
       "\nPrioritize function calls over clarifying questions. Do not ask the user for permission to execute functions." +
       "\nKeep responses concise—under 2000 characters for Discord." +
       "\nMaintain a friendly, professional tone, and feel free to add a bit of light humor occasionally." + 
-      "\nAdd https:// in front of links if they are missing it, so the user can click the URLs directly.";
+      "\nYou should check that all the links are started with https://, modify it if they are missing it, so the user can click the URLs directly.";
     return systemInstruction;
   }
 
