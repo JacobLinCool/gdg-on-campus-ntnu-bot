@@ -90,7 +90,7 @@ export class Agent {
       "\nIf there are multiple options, make a decision and chain multiple tool calls as needed, providing the final answer directly without asking for clarification." +
       "\nPrioritize function calls over clarifying questions. Do not ask the user for permission to execute functions." +
       "\nKeep responses concise—under 2000 characters for Discord." +
-      "\nMaintain a friendly, professional tone, and feel free to add a bit of light humor occasionally." + 
+      "\nMaintain a friendly, professional tone, and feel free to add a bit of light humor occasionally." +
       "\nYou should check that all the links are started with https://, modify it if they are missing it, so the user can click the URLs directly.";
     return systemInstruction;
   }
